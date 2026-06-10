@@ -205,3 +205,334 @@ button:hover{
 </div>
 
 <script>
+const dogImage = document.getElementById("dogImage");
+const loading = document.getElementById("loading");
+
+const viewCountEl = document.getElementById("viewCount");
+const likeCountEl = document.getElementById("likeCount");
+const collectionCountEl = document.getElementById("collectionCount");
+const winCountEl = document.getElementById("winCount");
+const coinCountEl = document.getElementById("coinCount");
+const rarityEl = document.getElementById("rarity");
+
+const newDogBtn = document.getElementById("newDogBtn");
+const likeBtn = document.getElementById("likeBtn");
+const downloadBtn = document.getElementById("downloadBtn");
+const battleBtn = document.getElementById("battleBtn");
+const collectionBtn = document.getElementById("collectionBtn");
+const autoBtn = document.getElementById("autoBtn");
+
+// =========================
+// GAME STATE
+// =========================
+
+let totalViewed =
+Number(localStorage.getItem("viewed")) || 0;
+
+let likedDogs =
+JSON.parse(localStorage.getItem("likedDogs")) || [];
+
+let dogCollection =
+JSON.parse(localStorage.getItem("dogCollection")) || [];
+
+let playerWins =
+Number(localStorage.getItem("wins")) || 0;
+
+let coins =
+Number(localStorage.getItem("coins")) || 0;
+
+let currentImgUrl = "";
+let currentDog = null;
+
+let autoInterval = null;
+
+// =========================
+// UPDATE UI
+// =========================
+
+function updateUI() {
+viewCountEl.textContent = totalViewed;
+likeCountEl.textContent = likedDogs.length;
+collectionCountEl.textContent = dogCollection.length;
+winCountEl.textContent = playerWins;
+coinCountEl.textContent = coins;
+}
+
+// =========================
+// SAVE
+// =========================
+
+function saveGame() {
+localStorage.setItem("viewed", totalViewed);
+localStorage.setItem("likedDogs", JSON.stringify(likedDogs));
+localStorage.setItem("dogCollection", JSON.stringify(dogCollection));
+localStorage.setItem("wins", playerWins);
+localStorage.setItem("coins", coins);
+}
+
+// =========================
+// RARITY SYSTEM
+// =========================
+
+function getRarity(total) {
+if (total >= 250) return { name: "🌈 전설", color: "#f59e0b" };
+if (total >= 220) return { name: "💜 영웅", color: "#a855f7" };
+if (total >= 180) return { name: "💙 희귀", color: "#3b82f6" };
+return { name: "⚪ 일반", color: "#9ca3af" };
+}
+
+// =========================
+// DOG DATA
+// =========================
+
+function createDog(url) {
+const atk = Math.floor(Math.random() * 50) + 50;
+const def = Math.floor(Math.random() * 50) + 50;
+const hp = Math.floor(Math.random() * 50) + 50;
+
+const total = atk + def + hp;
+const rarity = getRarity(total);
+
+return {
+url,
+atk,
+def,
+hp,
+total,
+rarity
+};
+}
+
+// =========================
+// BACKGROUND
+// =========================
+
+const colors = [
+"#ffe5ec","#d8f3dc","#fcd5ce","#e0aaff",
+"#cdb4db","#bde0fe","#ffc8dd"
+];
+
+function changeBg() {
+document.body.style.background =
+colors[Math.floor(Math.random()*colors.length)];
+}
+
+// =========================
+// GET DOG IMAGE
+// =========================
+
+async function getDogImage() {
+loading.textContent = "강아지 사진을 불러오는 중...";
+
+try {
+const res = await fetch("https://dog.ceo/api/breeds/image/random");
+const data = await res.json();
+
+currentImgUrl = data.message;
+dogImage.src = currentImgUrl;
+
+dogImage.onload = () => {
+
+loading.textContent = "완료!";
+
+totalViewed++;
+coins += 5;
+
+currentDog = createDog(currentImgUrl);
+
+// rarity 표시
+rarityEl.textContent = currentDog.rarity.name;
+rarityEl.style.color = currentDog.rarity.color;
+
+// 도감 등록 (중복 방지)
+const exists = dogCollection.some(
+d => d.url === currentImgUrl
+);
+
+if (!exists) {
+dogCollection.push(currentDog);
+}
+
+// 배경 변경
+changeBg();
+
+// UI + 저장
+updateUI();
+saveGame();
+};
+
+} catch (err) {
+loading.textContent = "불러오기 실패";
+}
+}
+
+// =========================
+// LIKE SYSTEM
+// =========================
+
+likeBtn.addEventListener("click", () => {
+
+if (!currentImgUrl) return;
+
+if (!likedDogs.includes(currentImgUrl)) {
+likedDogs.push(currentImgUrl);
+updateUI();
+saveGame();
+alert("❤️ 좋아요 저장!");
+}
+
+});
+
+// =========================
+// DOWNLOAD IMAGE
+// =========================
+
+downloadBtn.addEventListener("click", async () => {
+
+if (!currentImgUrl) return;
+
+const res = await fetch(currentImgUrl);
+const blob = await res.blob();
+
+const url = URL.createObjectURL(blob);
+
+const a = document.createElement("a");
+a.href = url;
+a.download = `dog-${Date.now()}.jpg`;
+
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+
+URL.revokeObjectURL(url);
+});
+
+// =========================
+// NEW DOG BUTTON
+// =========================
+
+newDogBtn.addEventListener("click", getDogImage);
+
+// =========================
+// BATTLE SYSTEM
+// =========================
+
+battleBtn.addEventListener("click", () => {
+
+if (!currentDog) return;
+
+// 적 생성
+const enemy = {
+atk: Math.floor(Math.random() * 100) + 50,
+def: Math.floor(Math.random() * 100) + 50,
+hp: Math.floor(Math.random() * 100) + 50
+};
+
+const enemyPower =
+enemy.atk + enemy.def + enemy.hp;
+
+const myPower =
+currentDog.atk +
+currentDog.def +
+currentDog.hp;
+
+// 승패 판정
+if (myPower > enemyPower) {
+
+playerWins++;
+coins += 20;
+
+alert(
+`🏆 승리!\n\n` +
+`내 전투력: ${myPower}\n` +
+`상대 전투력: ${enemyPower}`
+);
+
+} else {
+
+alert(
+`💀 패배...\n\n` +
+`내 전투력: ${myPower}\n` +
+`상대 전투력: ${enemyPower}`
+);
+
+}
+
+// UI 업데이트
+updateUI();
+saveGame();
+
+});
+
+// =========================
+// COLLECTION VIEW
+// =========================
+
+collectionBtn.addEventListener("click", () => {
+
+if (dogCollection.length === 0) {
+alert("도감이 비어 있습니다!");
+return;
+}
+
+let text = "📖 강아지 도감\n\n";
+
+dogCollection.forEach((dog, i) => {
+
+text +=
+`${i + 1}번\n` +
+`${dog.rarity.name}\n` +
+`⚔️ ${dog.atk}\n` +
+`🛡️ ${dog.def}\n` +
+`❤️ ${dog.hp}\n\n`;
+
+});
+
+alert(text);
+
+});
+
+// =========================
+// AUTO PLAY
+// =========================
+
+autoBtn.addEventListener("click", () => {
+
+if (autoInterval) {
+
+clearInterval(autoInterval);
+autoInterval = null;
+
+autoBtn.textContent = "자동 재생 시작 ▶️";
+autoBtn.classList.remove("active");
+
+} else {
+
+getDogImage();
+
+autoInterval = setInterval(() => {
+getDogImage();
+}, 2500);
+
+autoBtn.textContent = "자동 재생 중지 ⏹️";
+autoBtn.classList.add("active");
+
+}
+
+});
+
+// =========================
+// INIT UI
+// =========================
+
+function init() {
+updateUI();
+getDogImage();
+}
+
+init();
+
+</script>
+
+</body>
+</html>
